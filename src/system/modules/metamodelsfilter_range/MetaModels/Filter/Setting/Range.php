@@ -21,6 +21,7 @@ use MetaModels\Filter\IFilter;
 use MetaModels\Filter\Rules\SimpleQuery;
 use MetaModels\Filter\Rules\StaticIdList;
 use MetaModels\FrontendIntegration\FrontendFilterOptions;
+use MetaModels\Helper\ContaoController;
 
 /**
  * Filter "value in range of 2 fields" for FE-filtering, based on filters by the meta models team.
@@ -62,10 +63,43 @@ class Range extends Simple
 			$objAttribute2 = $objAttribute;
 		}
 
+
 		$strParamName = $this->getParamName();
 		$strParamValue = $arrFilterUrl[$strParamName];
 		$strMore = $this->get('moreequal') ? '>=' : '>';
 		$strLess = $this->get('lessequal') ? '<=' : '<';
+
+
+		if (array_key_exists($strParamName, $arrFilterUrl) && !empty($arrFilterUrl[$strParamName]))
+		{
+
+			
+			if (is_array($arrFilterUrl[$strParamName]))
+			{
+				$arrParamValue = $arrFilterUrl[$strParamName];
+			} else {
+				// TODO: still unsure if double underscore is such a wise idea.
+				$arrParamValue = explode('__', $arrFilterUrl[$strParamName]);
+			}
+
+			// if attr_type==timestamp ? transform datestring to unixtimestamp
+			if ($objAttribute->get('type') == 'timestamp')
+			{
+				// TODO: make Contao Date()-Class useable, $objData is still empty (why?)
+				$objDate = ContaoController::getInstance()->import('Date');
+
+				foreach($arrParamValue AS $dateStrKey => $dateStrVal) 
+				{
+					
+
+					$objDate  = new \Date($dateStrVal, $GLOBALS['TL_CONFIG'][$rgxp . 'Format']);
+					$arrParamValue[$dateStrKey] = $objDate->tstamp;
+		
+				}
+			}
+
+
+		}
 
 		if ($objAttribute && $objAttribute2 && $strParamName && $strParamValue)
 		{
@@ -77,8 +111,7 @@ class Range extends Simple
 					$objAttribute2->getColName(),
 					$strMore,
 					$objAttribute->getColName()
-				),
-				array($strParamValue, $strParamValue)
+				), array($arrParamValue[0],$arrParamValue[0])
 			));
 			return;
 		}
@@ -105,12 +138,58 @@ class Range extends Simple
 	{
 		$objAttribute = $this->getMetaModel()->getAttributeById($this->get('attr_id'));
 
+
+		$arrOptions = $objAttribute->getFilterOptions(($this->get('onlypossible') ? $arrIds : NULL), (bool)$this->get('onlyused'));
+
+		// Remove empty values from list.
+		foreach ($arrOptions as $mixKeyOption => $mixOption)
+		{
+			// Remove html/php tags.
+			$mixOption = strip_tags($mixOption);
+			$mixOption = trim($mixOption);
+
+			if($mixOption === '' || $mixOption === null)
+			{
+				unset($arrOptions[$mixKeyOption]);
+			}
+		}
+
+
 		$arrLabel = array(
 			($this->get('label') ? $this->get('label') : $objAttribute->getName()),
 			'GET: '.$this->getParamName()
 		);
 
+
+			// split up our param so the widgets can use it again.
+		$strParamName = $this->getParamName(); // test
+		$arrMyFilterUrl = $arrFilterUrl; // test => 1__2
+
+		
+		// if we have a value, we have to explode it by double underscore to have a valid value which the active checks may cope with.
+		if (array_key_exists($strParamName, $arrFilterUrl) && !empty($arrFilterUrl[$strParamName]))
+		{
+			if (is_array($arrFilterUrl[$strParamName]))
+			{
+				$arrParamValue = $arrFilterUrl[$strParamName];
+			} else {
+				// TODO: still unsure if double underscore is such a wise idea.
+				$arrParamValue = explode('__', $arrFilterUrl[$strParamName], 2);
+			}
+
+			if ($arrParamValue && ($arrParamValue[0] || $arrParamValue[1]))
+			{
+				$arrMyFilterUrl[$strParamName] = $arrParamValue;
+			} else {
+				// no values given, clear the array.
+				$arrParamValue = NULL;
+			}
+
+		}
+
+
 		$GLOBALS['MM_FILTER_PARAMS'][] = $this->getParamName();
+
 
 		return array(
 			$this->getParamName() => $this->prepareFrontendFilterWidget(
@@ -121,7 +200,8 @@ class Range extends Simple
 					'eval'      => array
 					(
 						'urlparam'     => $this->getParamName(),
-						'template'     => $this->get('template')
+						'template'     => $this->get('template'),
+						'helpwizard'   => true
 					)
 				),
 				$arrFilterUrl,
@@ -129,7 +209,7 @@ class Range extends Simple
 				$objFrontendFilterOptions
 			)
 		);
-	}
+}
 
 	/**
 	 * Retrieve the attributes that are referenced in this filter setting.

@@ -23,6 +23,7 @@ $GLOBALS['METAMODELS']['filters']['range']['image'] = 'system/modules/metamodels
 $GLOBALS['METAMODELS']['filters']['range']['info_callback'] = array('MetaModels\Dca\Filter', 'infoCallback');
 $GLOBALS['METAMODELS']['filters']['range']['attr_filter'][] = 'numeric';
 $GLOBALS['METAMODELS']['filters']['range']['attr_filter'][] = 'decimal';
+$GLOBALS['METAMODELS']['filters']['range']['attr_filter'][] = 'timestamp';
 
 // non composerized Contao 2.X autoload support.
 $GLOBALS['MM_AUTOLOAD'][] = dirname(__DIR__);
